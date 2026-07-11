@@ -1,0 +1,13 @@
+{
+  "project": "Security System",
+  "endpoints": {
+    "login": "/api/login",
+    "log_access": "/api/log-access",
+    "get_users": "/api/users"
+  },
+  "data_format": {
+    "user_id": "integer",
+    "status": "string",
+    "timestamp": "datetime"
+  }
+}

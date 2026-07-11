@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+.env
+system_error.log
+laporan_kehadiran.csv
+dataset/
+trained_model/
+intruder_logs/
+logs/
+laporan/
+*.log
