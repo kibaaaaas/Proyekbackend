@@ -5,8 +5,9 @@ import numpy as np
 import datetime
 import logging
 from fastapi import FastAPI, HTTPException, Request, Security, Depends
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
 from fastapi.security.api_key import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
 from openpyxl import Workbook
 from io import BytesIO
 from dotenv import load_dotenv
@@ -31,12 +32,25 @@ def verify_api_key(api_key: str = Security(api_key_header)):
     if api_key != API_KEY:
         raise HTTPException(status_code=403, detail="Forbidden: API Key tidak valid")
 
+DATASET_DIR = os.path.join(os.path.dirname(__file__), "..", "dataset")
+INTRUDER_DIR = os.path.join(os.path.dirname(__file__), "..", "intruder_logs")
+os.makedirs(DATASET_DIR, exist_ok=True)
+os.makedirs(INTRUDER_DIR, exist_ok=True)
+
 app = FastAPI(
     title="Sistem Deteksi Wajah Backend",
     description="API untuk sistem absensi dan monitoring kehadiran otomatis",
-    version="1.0.0",
-    dependencies=[Depends(verify_api_key)]
+    version="1.0.0"
 )
+
+@app.middleware("http")
+async def ngrok_skip_warning(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["ngrok-skip-browser-warning"] = "true"
+    return response
+
+app.mount("/dataset", StaticFiles(directory=DATASET_DIR), name="dataset")
+app.mount("/intruder", StaticFiles(directory=INTRUDER_DIR), name="intruder")
 
 def get_db_connection():
     return mysql.connector.connect(
@@ -63,45 +77,92 @@ def clean_old_logs():
         logging.exception("Gagal bersihkan database")
         raise HTTPException(status_code=500, detail="Gagal bersihkan log")
 
+@app.delete("/logs")
+async def delete_all_logs(_: str = Depends(verify_api_key)):
+    try:
+        db = get_db_connection()
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM access_logs")
+        db.commit()
+        hapus = cursor.rowcount
+        cursor.close()
+        db.close()
+        return {"status": "success", "message": f"{hapus} log dihapus"}
+    except Exception as e:
+        logging.exception("Error delete all logs")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/logs/{log_id}")
+async def delete_log(log_id: int, _: str = Depends(verify_api_key)):
+    try:
+        db = get_db_connection()
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM access_logs WHERE id = %s", (log_id,))
+        db.commit()
+        hapus = cursor.rowcount
+        cursor.close()
+        db.close()
+        if hapus == 0:
+            raise HTTPException(status_code=404, detail="Log tidak ditemukan")
+        return {"status": "success", "message": f"Log ID {log_id} dihapus"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.exception("Error delete log")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/users")
+async def get_users(_: str = Depends(verify_api_key)):
+    labels_path = os.path.join(os.path.dirname(__file__), "..", "dataset", "labels.txt")
+    users = []
+    if os.path.exists(labels_path):
+        with open(labels_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split(",")
+                users.append({
+                    "id": int(parts[0]),
+                    "name": parts[1],
+                    "role": parts[2] if len(parts) > 2 else "Kominfo"
+                })
+    return {"status": "success", "data": users}
+
 @app.get("/clean-logs")
-async def bersihkan_log():
+async def bersihkan_log(_: str = Depends(verify_api_key)):
     return clean_old_logs()
 
 @app.get("/", response_class=HTMLResponse)
 async def get_dashboard():
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM access_logs WHERE DATE(waktu) = CURDATE() ORDER BY waktu DESC")
-    logs = cursor.fetchall()
-    cursor.close()
-    db.close()
-
-    rows = ""
-    for log in logs:
-        rows += f"<tr><td>{log['id']}</td><td>{log['status']}</td><td>{str(log['waktu'])}</td></tr>"
-    
-    return f"""
-    <html>
-    <body>
-        <h1>Laporan Kehadiran Hari Ini</h1>
-        <table border="1" style="width:100%; border-collapse: collapse;">
-            <tr><th>ID</th><th>Status</th><th>Waktu</th></tr>
-            {rows}
-        </table>
-    </body>
-    </html>
-    """
+    html_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
+    with open(html_path, "r", encoding="utf-8") as f:
+        return f.read()
 @app.get("/logs")
-async def get_logs():
+async def get_logs(limit: int = 10, start_date: str = "", end_date: str = "", search: str = "", _: str = Depends(verify_api_key)):
     try:
         db = get_db_connection()
         cursor = db.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM access_logs ORDER BY id DESC LIMIT 10")
+        query = "SELECT * FROM access_logs WHERE 1=1"
+        params = []
+        if start_date:
+            query += " AND DATE(waktu) >= %s"
+            params.append(start_date)
+        if end_date:
+            query += " AND DATE(waktu) <= %s"
+            params.append(end_date)
+        if search:
+            query += " AND status LIKE %s"
+            params.append(f"%{search}%")
+        query += " ORDER BY id DESC"
+        if limit > 0:
+            query += " LIMIT %s"
+            params.append(limit)
+        cursor.execute(query, tuple(params))
         records = cursor.fetchall()
         cursor.close()
         db.close()
 
-        # Konversi waktu ke string supaya aman di JSON
         for record in records:
             record['waktu'] = str(record['waktu'])
 
@@ -111,30 +172,25 @@ async def get_logs():
         return {"status": "error", "message": str(e)}
 
 @app.post("/detect")
-async def detect_wajah(data: dict):
+async def detect_wajah(data: dict, _: str = Depends(verify_api_key)):
+    status = data.get("status", "").strip()
+    if not status:
+        raise HTTPException(status_code=400, detail="Field 'status' wajib diisi")
     db = get_db_connection()
     cursor = db.cursor()
     
-    # CEK APAKAH HARI INI SUDAH ADA LOG
-    # Kita cek berdasarkan tanggal (CURDATE)
-    query_cek = "SELECT id FROM access_logs WHERE DATE(waktu) = CURDATE() LIMIT 1"
-    cursor.execute(query_cek)
-    sudah_ada = cursor.fetchone()
-    
-    # Cuma simpan kalau hari ini belum ada log sama sekali
-    if not sudah_ada:
-        sql = "INSERT INTO access_logs (status, waktu) VALUES (%s, %s)"
-        # Menggunakan format waktu sekarang
-        val = (data['status'], datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        cursor.execute(sql, val)
-        db.commit()
+    snapshot_path = data.get("snapshot_path", "")
+    sql = "INSERT INTO access_logs (status, snapshot_path, waktu) VALUES (%s, %s, %s)"
+    val = (status, snapshot_path, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    cursor.execute(sql, val)
+    db.commit()
     
     cursor.close()
     db.close()
     return {"status": "success"}
 
 @app.post("/train")
-async def train_model():
+async def train_model(_: str = Depends(verify_api_key)):
     dataset_path = "dataset" # Sesuaikan dengan lokasi folder lu
     model_dir = "trained_model"
     
@@ -176,7 +232,7 @@ async def train_model():
     return {"status": "success", "message": f"Model berhasil dilatih dengan {len(set(ids))} user!"}
 
 @app.get("/export/excel")
-async def export_excel():
+async def export_excel(_: str = Depends(verify_api_key)):
     try:
         db = get_db_connection()
         cursor = db.cursor(dictionary=True)
@@ -208,7 +264,7 @@ async def export_excel():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/reports/today")
-def get_today_report():
+def get_today_report(_: str = Depends(verify_api_key)):
     try:
         db = get_db_connection()
         cursor = db.cursor(dictionary=True)

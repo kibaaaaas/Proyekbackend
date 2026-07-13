@@ -3,6 +3,7 @@ import numpy as np
 import os
 import csv
 import time
+import requests
 from datetime import datetime
 from collections import defaultdict
 
@@ -12,11 +13,12 @@ try:
 except ImportError:
     ADA_SUARA = False
 
-DATASET_DIR = "dataset"
-MODEL_DIR = "trained_model"
-INTRUDER_DIR = "intruder_logs"
-LOG_DIR = "logs"
-LAPORAN_DIR = "laporan"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATASET_DIR = os.path.join(BASE_DIR, "..", "dataset")
+MODEL_DIR = os.path.join(BASE_DIR, "trained_model")
+INTRUDER_DIR = os.path.join(BASE_DIR, "..", "intruder_logs")
+LOG_DIR = os.path.join(BASE_DIR, "logs")
+LAPORAN_DIR = os.path.join(BASE_DIR, "laporan")
 
 MODEL_PATH = os.path.join(MODEL_DIR, "trainer.yml")
 LABELS_PATH = os.path.join(DATASET_DIR, "labels.txt")
@@ -27,7 +29,7 @@ JUMLAH_SAMPEL = 20
 # ATURAN SKOR (dibalik, semakin TINGGI semakin COCOK):
 # - Skor 75-100  -> dianggap DIKENALI
 # - Skor 0-74    -> dianggap TIDAK DIKENALI
-THRESHOLD_SCORE = 75
+THRESHOLD_SCORE = 50
 
 BATAS_PERCOBAAN = 3
 FRAME_PER_PERCOBAAN = 15
@@ -97,8 +99,14 @@ def capture_faces():
         cap.release()
         return
 
+    print("\nPilih role user:")
+    print("1. Kominfo")
+    print("2. Magang")
+    pilihan_role = input("Pilih (1/2): ").strip()
+    role = "Kominfo" if pilihan_role == "1" else "Magang"
+
     with open(LABELS_PATH, "a") as f:
-        f.write(f"{user_id},{user_name}\n")
+        f.write(f"{user_id},{user_name},{role}\n")
 
     print("\n[INFO] Mengambil sampel wajah. GERAKKAN sedikit kepala ke kiri/kanan/atas/bawah")
     print("[INFO] biar variasi datanya banyak dan model makin akurat.")
@@ -196,8 +204,11 @@ def load_labels():
                 line = line.strip()
                 if not line:
                     continue
-                user_id, name = line.split(",", 1)
-                labels[int(user_id)] = name
+                parts = line.split(",")
+                user_id = int(parts[0])
+                name = parts[1]
+                role = parts[2] if len(parts) > 2 else "Kominfo"
+                labels[user_id] = {"name": name, "role": role}
     return labels
 
 
@@ -252,16 +263,30 @@ def run_access_control():
             skor = 100 - raw_confidence
             skor = max(0, min(100, skor))
 
+            print(f"DEBUG -> user_id={user_id}, raw_confidence={raw_confidence:.1f}, skor={skor:.1f}, threshold={THRESHOLD_SCORE}")
+
+            snapshot_file = ""
+
             if skor >= THRESHOLD_SCORE and user_id in labels:
-                nama = labels[user_id]
+                user_info = labels[user_id]
+                nama = user_info["name"]
+                role = user_info["role"]
+                label_status = f"{role} - {nama}"
                 status = "AKSES DITERIMA"
                 warna = (0, 200, 0)
 
                 unknown_streak_frames = 0
                 percobaan_counter = 0
                 sudah_disimpan = False
+
+                if waktu_sekarang - last_csv_log_time >= 1:
+                    nama_snapshot = os.path.join("dataset", f"user.{user_id}.{int(time.time())}.jpg")
+                    cv2.imwrite(os.path.join(DATASET_DIR, f"user.{user_id}.{int(time.time())}.jpg"), frame)
+                    snapshot_file = nama_snapshot
             else:
                 nama = "Tidak dikenali"
+                role = ""
+                label_status = "Tidak dikenali"
                 status = "AKSES DITOLAK"
                 warna = (0, 0, 255)
                 ada_wajah_asing_di_frame_ini = True
@@ -285,6 +310,18 @@ def run_access_control():
                     bunyikan_alarm()
                     sudah_disimpan = True
                     peringatan_tampil_sampai = time.time() + 4
+
+            waktu_sekarang = time.time()
+            if waktu_sekarang - last_csv_log_time >= 1:
+                log_ke_csv(user_id, status, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                try:
+                    payload = {"status": label_status}
+                    if snapshot_file:
+                        payload["snapshot_path"] = snapshot_file
+                    requests.post("http://127.0.0.1:8000/detect", json=payload, headers={"X-API-Key": "Kominfo123"}, timeout=1)
+                except:
+                    pass
+                last_csv_log_time = waktu_sekarang
 
             teks_info = f"{nama} | skor:{skor:.0f}"
 
