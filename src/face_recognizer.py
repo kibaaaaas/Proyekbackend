@@ -299,8 +299,8 @@ def run_access_control():
                 percobaan_counter = 0
                 sudah_disimpan = False
 
-                if waktu_sekarang - last_csv_log_time >= 1:
-                    nama_snapshot = os.path.join("dataset", f"user.{user_id}.{int(time.time())}.jpg")
+                if time.time() - last_csv_log_time >= 1:
+                    nama_snapshot = f"dataset/user.{user_id}.{int(time.time())}.jpg"
                     cv2.imwrite(os.path.join(DATASET_DIR, f"user.{user_id}.{int(time.time())}.jpg"), frame)
                     snapshot_file = nama_snapshot
             else:

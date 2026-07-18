@@ -3,9 +3,9 @@ import requests
 import os
 import time
 
-# Pastikan folder dataset ada
-if not os.path.exists('dataset'):
-    os.makedirs('dataset')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATASET_DIR = os.path.join(BASE_DIR, "..", "dataset")
+os.makedirs(DATASET_DIR, exist_ok=True)
 
 # Setup Kamera dan Detektor
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -31,17 +31,15 @@ while True:
         # Logika simpan foto (dengan jeda 3 detik)
         if time.time() - last_saved_time > save_interval:
             face_only = frame[y:y+h, x:x+w]
-            # Simpan dengan format: dataset/user.1.waktu.jpg
-            img_name = f"dataset/user.1.{int(time.time())}.jpg"
+            timestamp = int(time.time())
+            img_name = os.path.join(DATASET_DIR, f"user.1.{timestamp}.jpg")
             cv2.imwrite(img_name, face_only)
             print(f"Foto tersimpan: {img_name}")
             last_saved_time = time.time()
-        
-        # Kirim sinyal ke backend
-        try:
-            requests.post("http://127.0.0.1:8000/detect", json={"status": "Wajah Terdeteksi"})
-        except:
-            pass
+            try:
+                requests.post("http://127.0.0.1:8000/detect", json={"status": "Wajah Terdeteksi", "snapshot_path": f"dataset/user.1.{timestamp}.jpg"}, headers={"X-API-Key": "Kominfo123"})
+            except:
+                pass
 
     cv2.imshow('CCTV', frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
