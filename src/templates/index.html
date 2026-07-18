@@ -85,6 +85,11 @@
         body.dark .user-card .info h4 { color: #e2e8f0; }
         .user-card .info p { color: #666; font-size: 13px; }
         body.dark .user-card .info p { color: #94a3b8; }
+        .foto-item { background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: 0.3s; }
+        body.dark .foto-item { background: #1e293b; }
+        .foto-item img { width:100%; height:160px; object-fit:cover; cursor:pointer; }
+        .foto-item .info { padding:10px; font-size:13px; }
+        body.dark .foto-item .info { color:#e2e8f0; }
         @media (max-width: 768px) {
             nav { padding: 15px 20px; }
             nav .nav-links a { margin-left: 12px; font-size: 13px; }
@@ -117,12 +122,12 @@
 </section>
 
 <div class="features">
-    <div class="feature" onclick="showPage('dashboard', document.querySelector('.nav-links a:nth-child(2)'))" style="cursor:pointer;">
+    <div class="feature" onclick="showPage('deteksi', document.querySelector('.nav-links a:nth-child(2)'))" style="cursor:pointer;">
         <div class="icon">&#128065;</div>
         <h3>Deteksi Real-time</h3>
         <p>Deteksi wajah langsung dari kamera, hasil langsung masuk ke database.</p>
     </div>
-    <div class="feature" onclick="showPage('dashboard', document.querySelector('.nav-links a:nth-child(2)'))" style="cursor:pointer;">
+    <div class="feature" onclick="showPage('laporan', document.querySelector('.nav-links a:nth-child(2)'))" style="cursor:pointer;">
         <div class="icon">&#128203;</div>
         <h3>Laporan Otomatis</h3>
         <p>Semua kehadiran tercatat rapi dengan export Excel & CSV.</p>
@@ -132,7 +137,7 @@
         <h3>Aman & Terkunci</h3>
         <p>Setiap akses API diamankan dengan kunci khusus.</p>
     </div>
-    <div class="feature" onclick="showPage('dashboard', document.querySelector('.nav-links a:nth-child(2)'))" style="cursor:pointer;">
+    <div class="feature" onclick="showPage('foto', document.querySelector('.nav-links a:nth-child(2)'))" style="cursor:pointer;">
         <div class="icon">&#128247;</div>
         <h3>Foto Tersimpan</h3>
         <p>Setiap deteksi menyimpan foto wajah untuk bukti kehadiran.</p>
@@ -144,12 +149,10 @@
         <h2>Dashboard Monitoring</h2>
         <p>Sistem Absensi & Monitoring Kehadiran</p>
     </div>
-
     <div class="status-bar" id="statusBar">
         <span class="dot" id="statusDot"></span>
         <span id="statusText">Memuat data...</span>
     </div>
-
     <div class="cards">
         <div class="card blue">
             <h3>Total Deteksi Hari Ini</h3>
@@ -168,11 +171,9 @@
             <div class="value" id="totalLog">-</div>
         </div>
     </div>
-
     <div class="chart-container">
         <canvas id="chartLog" height="100"></canvas>
     </div>
-
     <div class="filter-bar">
         <label>Dari:</label>
         <input type="date" id="filterStart">
@@ -183,13 +184,11 @@
         <button class="btn btn-primary" onclick="refreshData()">Filter</button>
         <button class="btn btn-outline" onclick="resetFilter()">Reset</button>
     </div>
-
     <div class="toolbar">
         <button class="btn btn-success" onclick="exportExcel()">Export Excel</button>
         <button class="btn btn-warning" onclick="cleanLogs()">Clean Logs</button>
         <button class="btn btn-danger" onclick="hapusSemua()">Hapus Semua</button>
     </div>
-
     <div style="max-height:500px;overflow-y:auto;border-radius:12px;">
     <table>
         <thead>
@@ -246,8 +245,101 @@
     </div>
 </div>
 
+<div class="container" id="page-deteksi" style="display:none;">
+    <div class="page-title">
+        <h2>Deteksi Real-time</h2>
+        <p>Pemantauan deteksi wajah secara langsung</p>
+    </div>
+    <div class="status-bar" id="statusBar2">
+        <span class="dot" id="statusDot2"></span>
+        <span id="statusText2">Memuat data...</span>
+    </div>
+    <div class="cards">
+        <div class="card blue">
+            <h3>Total Deteksi Hari Ini</h3>
+            <div class="value" id="totalToday2">-</div>
+        </div>
+        <div class="card green">
+            <h3>Akses Diterima</h3>
+            <div class="value" id="totalDiterima2">-</div>
+        </div>
+        <div class="card red">
+            <h3>Akses Ditolak</h3>
+            <div class="value" id="totalDitolak2">-</div>
+        </div>
+        <div class="card blue">
+            <h3>Total Log</h3>
+            <div class="value" id="totalLog2">-</div>
+        </div>
+    </div>
+    <div style="max-height:400px;overflow-y:auto;border-radius:12px;">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Foto</th>
+                <th>Status</th>
+                <th>Waktu</th>
+            </tr>
+        </thead>
+        <tbody id="logTable2">
+            <tr><td colspan="4" class="loading">Memuat data...</td></tr>
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<div class="container" id="page-laporan" style="display:none;">
+    <div class="page-title">
+        <h2>Laporan Kehadiran</h2>
+        <p>Semua data kehadiran dengan export Excel</p>
+    </div>
+    <div class="filter-bar">
+        <label>Dari:</label>
+        <input type="date" id="fltStart">
+        <label>Sampai:</label>
+        <input type="date" id="fltEnd">
+        <label>Cari:</label>
+        <input type="text" id="fltSearch" placeholder="Nama / status..." style="width:180px;">
+        <button class="btn btn-primary" onclick="refreshLaporan()">Filter</button>
+        <button class="btn btn-outline" onclick="resetLaporan()">Reset</button>
+    </div>
+    <div class="toolbar">
+        <button class="btn btn-success" onclick="exportExcel()">Export Excel</button>
+        <button class="btn btn-warning" onclick="cleanLogs()">Clean Logs</button>
+        <button class="btn btn-danger" onclick="hapusSemua()">Hapus Semua</button>
+    </div>
+    <div style="max-height:500px;overflow-y:auto;border-radius:12px;">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Foto</th>
+                <th>Status</th>
+                <th>Waktu</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody id="logTable3">
+            <tr><td colspan="5" class="loading">Memuat data...</td></tr>
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<div class="container" id="page-foto" style="display:none;">
+    <div class="page-title">
+        <h2>Foto Tersimpan</h2>
+        <p>Galeri foto hasil deteksi wajah</p>
+    </div>
+    <div id="fotoGallery" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:15px;">
+        <p class="loading">Memuat foto...</p>
+    </div>
+</div>
+
 <script>
     let chartInstance = null;
+    let deteksiInterval = null;
 
     function toggleDark() {
         document.body.classList.toggle('dark');
@@ -262,18 +354,24 @@
             document.getElementById('page-home').style.display = 'block';
             document.querySelector('.features').style.display = 'grid';
         } else {
-            document.getElementById(`page-${page}`).style.display = 'block';
+            const p = document.getElementById(`page-${page}`);
+            if (p) p.style.display = 'block';
         }
         if (el) el.classList.add('active');
         if (page === 'dashboard') refreshData();
         if (page === 'users') loadUsers();
+        if (page === 'deteksi') { refreshDeteksi(); startAutoRefresh(); }
+        if (page === 'laporan') refreshLaporan();
+        if (page === 'foto') refreshFoto();
+        if (page !== 'deteksi') stopAutoRefresh();
     }
 
-    function resetFilter() {
-        document.getElementById('filterStart').value = '';
-        document.getElementById('filterEnd').value = '';
-        document.getElementById('filterSearch').value = '';
-        refreshData();
+    function startAutoRefresh() {
+        stopAutoRefresh();
+        deteksiInterval = setInterval(refreshDeteksi, 5000);
+    }
+    function stopAutoRefresh() {
+        if (deteksiInterval) { clearInterval(deteksiInterval); deteksiInterval = null; }
     }
 
     const API_KEY = 'Kominfo123';
@@ -306,6 +404,38 @@
         } catch (err) {
             el.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
         }
+    }
+
+    function renderTable(tbody, logs, withAksi) {
+        const cols = withAksi ? 5 : 4;
+        if (logs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${cols}" class="loading">Belum ada data log</td></tr>`;
+            return;
+        }
+        let html = '';
+        let tanggal_sekarang = '';
+        logs.forEach(log => {
+            const tgl = log.waktu ? log.waktu.split(' ')[0] : '';
+            if (tgl && tgl !== tanggal_sekarang) {
+                tanggal_sekarang = tgl;
+                html += `<tr style="background:#1a1a2e;color:#fff;"><td colspan="${cols}" style="padding:8px 16px;font-weight:700;">${tgl}</td></tr>`;
+            }
+            const s = log.status || '';
+            const isDitolak = s.includes('DITOLAK') || s.includes('Tidak dikenali');
+            const notAllowed = s.includes('Bukan');
+            let badge = 'badge-info';
+            if (isDitolak || notAllowed) badge = 'badge-danger';
+            else if (s.includes('Kominfo') || s.includes('Magang') || s.includes('Satpam')) badge = 'badge-success';
+            const fotoUrl = log.snapshot_path ? `/dataset/${log.snapshot_path.split('dataset/')[1] || log.snapshot_path}` : '';
+            html += `<tr>
+                <td>${log.id}</td>
+                <td>${fotoUrl ? `<a href="${fotoUrl}" target="_blank"><img src="${fotoUrl}" style="width:50px;height:50px;object-fit:cover;border-radius:6px;cursor:pointer;" alt="foto"></a>` : '-'}</td>
+                <td><span class="badge ${badge}">${log.status || '-'}</span></td>
+                <td>${log.waktu || '-'}</td>
+                ${withAksi ? `<td><button onclick="hapusLog(${log.id})" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;">Hapus</button></td>` : ''}
+            </tr>`;
+        });
+        tbody.innerHTML = html;
     }
 
     async function refreshData() {
@@ -343,35 +473,7 @@
             document.getElementById('totalDitolak').textContent = ditolak;
             document.getElementById('totalLog').textContent = semuaLogs.length;
 
-            const tbody = document.getElementById('logTable');
-            if (semuaLogs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="loading">Belum ada data log</td></tr>';
-            } else {
-                let html = '';
-                let tanggal_sekarang = '';
-                semuaLogs.forEach(log => {
-                    const tgl = log.waktu ? log.waktu.split(' ')[0] : '';
-                    if (tgl && tgl !== tanggal_sekarang) {
-                        tanggal_sekarang = tgl;
-                        html += `<tr style="background:#1a1a2e;color:#fff;"><td colspan="5" style="padding:8px 16px;font-weight:700;">${tgl}</td></tr>`;
-                    }
-                    const s = log.status || '';
-                    const isDitolak = s.includes('DITOLAK') || s.includes('Tidak dikenali');
-                    const notAllowed = s.includes('Bukan');
-                    let badge = 'badge-info';
-                    if (isDitolak || notAllowed) badge = 'badge-danger';
-                    else if (s.includes('Kominfo') || s.includes('Magang') || s.includes('Satpam')) badge = 'badge-success';
-                    const fotoUrl = log.snapshot_path ? `/dataset/${log.snapshot_path.split('dataset/')[1] || log.snapshot_path}` : '';
-                    html += `<tr>
-                        <td>${log.id}</td>
-                        <td>${fotoUrl ? `<a href="${fotoUrl}" target="_blank"><img src="${fotoUrl}" style="width:50px;height:50px;object-fit:cover;border-radius:6px;cursor:pointer;" alt="foto"></a>` : '-'}</td>
-                        <td><span class="badge ${badge}">${log.status || '-'}</span></td>
-                        <td>${log.waktu || '-'}</td>
-                        <td><button onclick="hapusLog(${log.id})" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;">Hapus</button></td>
-                    </tr>`;
-                });
-                tbody.innerHTML = html;
-            }
+            renderTable(document.getElementById('logTable'), semuaLogs, true);
 
             const dates = Object.keys(countsByDate).sort();
             if (chartInstance) chartInstance.destroy();
@@ -406,6 +508,87 @@
         }
     }
 
+    async function refreshDeteksi() {
+        try {
+            const [logsData, reportData] = await Promise.all([
+                fetchAPI('/logs?limit=20'),
+                fetchAPI('/reports/today')
+            ]);
+            const logs = logsData.data || [];
+            const totalToday = reportData.total_deteksi_hari_ini || 0;
+            let diterima = 0, ditolak = 0;
+            logs.forEach(log => {
+                const s = log.status || '';
+                if (s.includes('Kominfo') || s.includes('Magang') || s.includes('Satpam')) diterima++;
+                else if (s.includes('Tidak dikenali') || s.includes('DITOLAK') || s.includes('Bukan')) ditolak++;
+            });
+            document.getElementById('totalToday2').textContent = totalToday;
+            document.getElementById('totalDiterima2').textContent = diterima;
+            document.getElementById('totalDitolak2').textContent = ditolak;
+            document.getElementById('totalLog2').textContent = logs.length;
+            renderTable(document.getElementById('logTable2'), logs, false);
+            document.getElementById('statusText2').textContent = 'Sistem berjalan normal - auto refresh 5 detik';
+            document.getElementById('statusDot2').className = 'dot dot-green';
+        } catch (err) {
+            document.getElementById('statusText2').textContent = 'Error';
+            document.getElementById('statusDot2').className = 'dot dot-red';
+        }
+    }
+
+    async function refreshLaporan() {
+        try {
+            const start = document.getElementById('fltStart').value;
+            const end = document.getElementById('fltEnd').value;
+            const search = document.getElementById('fltSearch').value;
+            let url = '/logs?limit=9999';
+            if (start) url += `&start_date=${start}`;
+            if (end) url += `&end_date=${end}`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+            const logsData = await fetchAPI(url);
+            renderTable(document.getElementById('logTable3'), logsData.data || [], true);
+        } catch (err) {
+            document.getElementById('logTable3').innerHTML = `<tr><td colspan="5" class="loading">Error: ${err.message}</td></tr>`;
+        }
+    }
+
+    function resetLaporan() {
+        document.getElementById('fltStart').value = '';
+        document.getElementById('fltEnd').value = '';
+        document.getElementById('fltSearch').value = '';
+        refreshLaporan();
+    }
+
+    async function refreshFoto() {
+        const el = document.getElementById('fotoGallery');
+        try {
+            const logsData = await fetchAPI('/logs?limit=9999');
+            const withFoto = (logsData.data || []).filter(log => log.snapshot_path);
+            if (withFoto.length === 0) {
+                el.innerHTML = '<p class="loading">Belum ada foto tersimpan</p>';
+                return;
+            }
+            el.innerHTML = withFoto.map(log => {
+                const fotoUrl = `/dataset/${log.snapshot_path.split('dataset/')[1] || log.snapshot_path}`;
+                return `<div class="foto-item">
+                    <a href="${fotoUrl}" target="_blank"><img src="${fotoUrl}" alt="foto"></a>
+                    <div class="info">
+                        <strong>${log.status || '-'}</strong><br>
+                        <span style="color:#999;font-size:12px;">${log.waktu || ''}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (err) {
+            el.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+        }
+    }
+
+    function resetFilter() {
+        document.getElementById('filterStart').value = '';
+        document.getElementById('filterEnd').value = '';
+        document.getElementById('filterSearch').value = '';
+        refreshData();
+    }
+
     function exportExcel() { window.open(`${BASE_URL}/export/excel`, '_blank'); }
 
     async function hapusSemua() {
@@ -415,6 +598,7 @@
             const result = await res.json();
             alert(result.message || 'Berhasil');
             refreshData();
+            refreshLaporan();
         } catch (err) { alert('Gagal: ' + err.message); }
     }
 
@@ -424,6 +608,7 @@
             const res = await fetch(`${BASE_URL}/logs/${id}`, { method: 'DELETE', headers: { 'X-API-Key': API_KEY } });
             if (!res.ok) throw new Error('Gagal hapus');
             refreshData();
+            refreshLaporan();
         } catch (err) { alert('Gagal: ' + err.message); }
     }
 
@@ -433,6 +618,7 @@
             const result = await fetchAPI('/clean-logs');
             alert(`Berhasil: ${result.dihapus} data dihapus`);
             refreshData();
+            refreshLaporan();
         } catch (err) { alert('Gagal: ' + err.message); }
     }
 </script>
