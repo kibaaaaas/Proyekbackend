@@ -91,7 +91,18 @@ def capture_faces():
         print("[ERROR] Tidak bisa mengakses kamera. Pastikan tidak dipakai aplikasi lain.")
         return
 
-    user_id = input("Masukkan ID user (angka, contoh: 1): ").strip()
+    # Auto-increment ID dari labels.txt
+    next_id = 1
+    if os.path.exists(LABELS_PATH):
+        with open(LABELS_PATH, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    parts = line.split(",")
+                    if parts[0].isdigit():
+                        next_id = max(next_id, int(parts[0]) + 1)
+    user_id = str(next_id)
+    print(f"[INFO] ID otomatis: {user_id}")
     user_name = input("Masukkan nama user (contoh: budi): ").strip()
 
     if not user_id.isdigit():
@@ -102,8 +113,17 @@ def capture_faces():
     print("\nPilih role user:")
     print("1. Kominfo")
     print("2. Magang")
-    pilihan_role = input("Pilih (1/2): ").strip()
-    role = "Kominfo" if pilihan_role == "1" else "Magang"
+    print("3. Satpam")
+    print("4. Bukan Kominfo")
+    pilihan_role = input("Pilih (1/2/3/4): ").strip()
+    if pilihan_role == "1":
+        role = "Kominfo"
+    elif pilihan_role == "2":
+        role = "Magang"
+    elif pilihan_role == "3":
+        role = "Satpam"
+    else:
+        role = "Bukan Kominfo"
 
     with open(LABELS_PATH, "a") as f:
         f.write(f"{user_id},{user_name},{role}\n")
