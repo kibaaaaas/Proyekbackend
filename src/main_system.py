@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Request, Security, Depends
 from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from openpyxl import Workbook
 from io import BytesIO
 from dotenv import load_dotenv
@@ -41,6 +42,14 @@ app = FastAPI(
     title="Sistem Deteksi Wajah Backend",
     description="API untuk sistem absensi dan monitoring kehadiran otomatis",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.middleware("http")
